@@ -1,11 +1,11 @@
-name: Auto Update Worker
+name: Auto Update Worker and Redeploy Cloudflare Pages
 
 on:
   push:
     branches:
       - main
   schedule:
-    - cron: "0 1 * * *" # 每天凌晨1点运行
+    - cron: "0 17 * * *" # 东八区每天凌晨1点（UTC 17:00 前一天）
   workflow_dispatch:
     inputs:
       force_update:
@@ -126,3 +126,23 @@ jobs:
         with:
           commit_message: "🔄 自动同步 Worker 版本: ${{ steps.check_update.outputs.tag_name }}"
           commit_author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+
+      - name: 触发 Cloudflare Pages 重新部署
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_PROJECT_NAME: ${{ secrets.CF_PROJECT_NAME }}
+        run: |
+          log() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"; }
+          log "触发 Cloudflare Pages 重新部署..."
+          RESPONSE=$(curl -X POST "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/pages/projects/$CF_PROJECT_NAME/deployments" \
+            -H "Authorization: Bearer $CF_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data '{"branch": "main"}')
+          if [ $? -eq 0 ] && echo "$RESPONSE" | grep -q '"success":true'; then
+            log "Cloudflare Pages 重新部署触发成功"
+          else
+            log "ERROR: Cloudflare Pages 重新部署触发失败"
+            echo "$RESPONSE"
+            exit 1
+          fi
