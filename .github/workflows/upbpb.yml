@@ -1,5 +1,4 @@
 name: Auto Update Worker
-#
 
 on:
   push:
@@ -47,7 +46,7 @@ jobs:
           log "本地版本: $LOCAL_VERSION"
 
           # 获取最新 Release
-          ::group::获取 GitHub Release 信息
+          log "获取 GitHub Release 信息..."
           RESPONSE=$(curl -s --retry 3 -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/vnd.github.v3+json" "$REPO_URL")
           if [ $? -ne 0 ]; then
             log "ERROR: 无法访问 GitHub API"
@@ -65,7 +64,6 @@ jobs:
             exit 1
           fi
           log "最新版本: $TAG_NAME"
-          ::endgroup::
 
           # 判断是否需要更新
           FORCE_UPDATE=${{ github.event.inputs.force_update || 'false' }}
@@ -75,7 +73,6 @@ jobs:
           fi
 
           # 下载并验证文件
-          ::group::下载和解压
           log "下载 $TARGET_FILE..."
           wget --tries=3 --timeout=30 -q -O "$TARGET_FILE" "$DOWNLOAD_URL"
           if [ ! -s "$TARGET_FILE" ]; then
@@ -90,7 +87,6 @@ jobs:
             exit 1
           fi
           rm "$TARGET_FILE"
-          ::endgroup::
 
           # 设置输出变量
           echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
@@ -113,12 +109,10 @@ jobs:
         if: steps.check_update.outcome == 'success'
         run: |
           log() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"; }
-          ::group::代码混淆
           log "开始混淆代码..."
           find "$OBFUSCATE_DIR" -type f -name "*.js" -exec javascript-obfuscator {} --output {}.obfuscated --config obfuscator-config.json \;
-          find "$OBFUSCATE_DIR" -type f -name "*.js.obfuscated" -exec mv {} {}.original \;
+          find "$OBFUSCATE_DIR" -type f -name "*.js.obfuscated" -exec sh -c 'mv "$1" "${1%.obfuscated}"' _ {} \;
           log "代码混淆完成"
-          ::endgroup::
 
       - name: 移动混淆后的文件
         if: steps.check_update.outcome == 'success'
