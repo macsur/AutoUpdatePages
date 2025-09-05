@@ -1,6 +1,10 @@
-![示例图片](https://github.com/macsur/AutoUpdatePages/blob/main/2025-09-05_161109.png)
+# 借用一下强哥的视频
 
 [![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/R5YMIEN77Sg/0.jpg)](https://www.youtube.com/watch?v=R5YMIEN77Sg)
+
+
+
+![示例图片](https://github.com/macsur/AutoUpdatePages/blob/main/2025-09-05_161109.png)
 
 # BPB Panel在Cloudflare page上部署并实时更新！
 BPB-Worke-Panel最新版更新工作流
