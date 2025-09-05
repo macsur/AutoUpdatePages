@@ -1,11 +1,11 @@
-name: Auto Update Worker and Redeploy Cloudflare Pages
+name: Auto Update Worker and Trigger Cloudflare Pages
 
 on:
   push:
     branches:
       - main
   schedule:
-    - cron: "0 17 * * *" # JST 每天凌晨1点（UTC 17:00 前一天）
+    - cron: "0 16 * * *" # JST 每天凌晨1点（UTC 16:00 前一天）
   workflow_dispatch:
     inputs:
       force_update:
@@ -70,7 +70,6 @@ jobs:
           FORCE_UPDATE=${{ github.event.inputs.force_update || 'false' }}
           if [ "$LOCAL_VERSION" = "$TAG_NAME" ] && [ "$FORCE_UPDATE" != "true" ]; then
             log "已是最新版本，无需更新"
-            echo "skip_update=true" >> $GITHUB_OUTPUT
             exit 0
           fi
 
@@ -104,19 +103,19 @@ jobs:
           log "更新完成，新版本: $TAG_NAME"
 
       - name: 设置 Node.js 环境
-        if: steps.check_update.outputs.skip_update != 'true'
+        if: steps.check_update.outcome == 'success'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
       - name: 安装混淆工具
-        if: steps.check_update.outputs.skip_update != 'true'
+        if: steps.check_update.outcome == 'success'
         run: |
           npm install -g javascript-obfuscator
           echo "OBFUSCATE_DIR=$TEMP_DIR" >> $GITHUB_ENV
 
       - name: 混淆代码
-        if: steps.check_update.outputs.skip_update != 'true'
+        if: steps.check_update.outcome == 'success'
         run: |
           log() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"; }
           log "开始混淆代码..."
@@ -124,17 +123,17 @@ jobs:
             log "ERROR: $OBFUSCATE_DIR 目录不存在"
             exit 1
           fi
-          JS_FILES=$(find "$OBFUSCATE_DIR" -type f -name "*.js" | wc -l)
-          if [ "$JS_FILES" -eq 0 ]; then
-            log "警告: 未在 $OBFUSCATE_DIR 中找到 .js 文件"
+          if [ ! -f "obfuscator-config.json" ]; then
+            log "警告: 未找到 obfuscator-config.json，将使用默认混淆设置"
+            find "$OBFUSCATE_DIR" -type f -name "*.js" -exec javascript-obfuscator {} --output {}.obfuscated \;
           else
             find "$OBFUSCATE_DIR" -type f -name "*.js" -exec javascript-obfuscator {} --output {}.obfuscated --config obfuscator-config.json \;
-            find "$OBFUSCATE_DIR" -type f -name "*.js.obfuscated" -exec sh -c 'mv "$1" "${1%.obfuscated}"' _ {} \;
-            log "代码混淆完成，处理了 $JS_FILES 个文件"
           fi
+          find "$OBFUSCATE_DIR" -type f -name "*.js.obfuscated" -exec sh -c 'mv "$1" "${1%.obfuscated}"' _ {} \;
+          log "代码混淆完成"
 
       - name: 移动混淆后的文件
-        if: steps.check_update.outputs.skip_update != 'true'
+        if: steps.check_update.outcome == 'success'
         run: |
           log() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"; }
           log "移动 $TEMP_DIR 中的文件..."
@@ -143,34 +142,8 @@ jobs:
           log "文件移动完成"
 
       - name: 提交更改
-        if: steps.check_update.outputs.skip_update != 'true'
+        if: steps.check_update.outcome == 'success'
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "🔄 自动同步 Worker 版本: ${{ steps.check_update.outputs.tag_name }}"
           commit_author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
-
-      - name: 触发 Cloudflare Pages 重新部署
-        env:
-          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
-          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
-          CF_PROJECT_NAME: ${{ secrets.CF_PROJECT_NAME }}
-        run: |
-          log() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"; }
-          log "触发 Cloudflare Pages 重新部署..."
-          log "使用账户 ID: $CF_ACCOUNT_ID"
-          log "使用项目名称: $CF_PROJECT_NAME"
-          if [ -z "$CF_ACCOUNT_ID" ] || [ -z "$CF_PROJECT_NAME" ] || [ -z "$CF_API_TOKEN" ]; then
-            log "ERROR: 缺少必要的 Secrets（CF_ACCOUNT_ID, CF_PROJECT_NAME, 或 CF_API_TOKEN）"
-            exit 1
-          fi
-          RESPONSE=$(curl -X POST "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/pages/projects/$CF_PROJECT_NAME/deployments" \
-            -H "Authorization: Bearer $CF_API_TOKEN" \
-            -H "Content-Type: application/json" \
-            --data '{"branch": "main"}')
-          log "API 响应: $RESPONSE"
-          if [ $? -eq 0 ] && echo "$RESPONSE" | grep -q '"success":true'; then
-            log "Cloudflare Pages 重新部署触发成功"
-          else
-            log "ERROR: Cloudflare Pages 重新部署触发失败"
-            exit 1
-          fi
