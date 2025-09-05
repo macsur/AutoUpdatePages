@@ -1,10 +1,8 @@
-# 借用一下强哥的视频
+# 借用强哥【不一样的强哥】视频和内容
 
 [![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/R5YMIEN77Sg/0.jpg)](https://www.youtube.com/watch?v=R5YMIEN77Sg)
-
-
-
-![示例图片](https://github.com/macsur/AutoUpdatePages/blob/main/2025-09-05_161109.png)
+---
+![](https://github.com/macsur/AutoUpdatePages/blob/main/png/%E6%88%AA%E5%B1%8F2025-09-05%2020.30.38.png)
 
 # BPB Panel在Cloudflare page上部署并实时更新！
 BPB-Worke-Panel最新版更新工作流
