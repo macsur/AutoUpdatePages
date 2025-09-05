@@ -1,3 +1,5 @@
+![示例图片](https://github.com/macsur/AutoUpdatePages/blob/main/2025-09-05_161109.png)
+
 # BPB Panel在Cloudflare page上部署并实时更新！
 BPB-Worke-Panel最新版更新工作流
 新文件目录进行大的更改！现重新做了githhub action.（工作流来自互联网，本人只进行了简单修改，文章下有出处）
