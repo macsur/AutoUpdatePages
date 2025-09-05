@@ -72,16 +72,10 @@ GitHub API 请求是否成功。
 代码混淆是否执行。
 提交是否包含正确的版本信息。
 
-
-
-
 检查日志：
 
 确保没有 ::group:: 相关的错误。
 验证日志输出清晰，包含更新、下载、解压和混淆的详细信息。
-
-
-
 
 其他注意事项
 
@@ -90,3 +84,6 @@ GitHub API 请求是否成功。
 调试模式：如果问题持续，可以启用 GitHub Actions 的调试模式（在仓库设置中启用 Workflow Debug Logging），获取更详细日志。
 
 如果您有进一步的日志或错误信息，或者需要针对特定场景（如特定文件类型混淆）进行调整，请提供更多细节，我会进一步优化代码！
+
+# 没有什么问题 是看视频学习不了的。
+[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/R5YMIEN77Sg/0.jpg)](https://www.youtube.com/watch?v=R5YMIEN77Sg)
