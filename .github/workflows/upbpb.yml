@@ -5,7 +5,7 @@ on:
     branches:
       - main
   schedule:
-    - cron: "0 17 * * *" # 东八区每天凌晨1点（UTC 17:00 前一天）
+    - cron: "0 17 * * *" # 东九区每天凌晨1点（UTC 17:00 前一天）
   workflow_dispatch:
     inputs:
       force_update:
@@ -64,6 +64,7 @@ jobs:
             exit 1
           fi
           log "最新版本: $TAG_NAME"
+          log "下载链接: $DOWNLOAD_URL"
 
           # 判断是否需要更新
           FORCE_UPDATE=${{ github.event.inputs.force_update || 'false' }}
@@ -156,14 +157,16 @@ jobs:
         run: |
           log() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"; }
           log "触发 Cloudflare Pages 重新部署..."
+          log "使用账户 ID: $CF_ACCOUNT_ID"
+          log "使用项目名称: $CF_PROJECT_NAME"
           RESPONSE=$(curl -X POST "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/pages/projects/$CF_PROJECT_NAME/deployments" \
             -H "Authorization: Bearer $CF_API_TOKEN" \
             -H "Content-Type: application/json" \
             --data '{"branch": "main"}')
+          log "API 响应: $RESPONSE"
           if [ $? -eq 0 ] && echo "$RESPONSE" | grep -q '"success":true'; then
             log "Cloudflare Pages 重新部署触发成功"
           else
             log "ERROR: Cloudflare Pages 重新部署触发失败"
-            echo "$RESPONSE"
             exit 1
           fi
