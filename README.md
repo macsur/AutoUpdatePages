@@ -1,6 +1,6 @@
 # 借用强哥【不一样的强哥】视频和内容
 
-[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/R5YMIEN77Sg/0.jpg)](https://www.youtube.com/watch?v=R5YMIEN77Sg)
+[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/R5YMIEN77Sg/30.jpg)](https://www.youtube.com/watch?v=R5YMIEN77Sg)
 ---
 ![](https://github.com/macsur/AutoUpdatePages/blob/main/png/%E6%88%AA%E5%B1%8F2025-09-05%2020.30.38.png)
 
