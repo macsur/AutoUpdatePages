@@ -153,6 +153,16 @@ jobs:
           rm -rf "$TEMP_DIR"
           log "文件移动完成"
 
+      - name: 创建空提交以触发部署
+        if: steps.check_update.outputs.skip_update == 'true'
+        run: |
+          log() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"; }
+          log "创建空提交以触发 Cloudflare Pages 部署..."
+          echo "$(date)" > last_updated.txt
+          git add last_updated.txt
+          git commit -m "触发 Cloudflare Pages 部署"
+          git push
+
       - name: 提交更改
         if: steps.check_update.outputs.skip_update != 'true'
         uses: stefanzweifel/git-auto-commit-action@v5
