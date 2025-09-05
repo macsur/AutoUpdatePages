@@ -158,6 +158,8 @@ jobs:
         run: |
           log() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"; }
           log "创建空提交以触发 Cloudflare Pages 部署..."
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           echo "$(date)" > last_updated.txt
           git add last_updated.txt
           git commit -m "触发 Cloudflare Pages 部署"
