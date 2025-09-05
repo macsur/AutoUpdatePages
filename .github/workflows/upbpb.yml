@@ -70,6 +70,7 @@ jobs:
           FORCE_UPDATE=${{ github.event.inputs.force_update || 'false' }}
           if [ "$LOCAL_VERSION" = "$TAG_NAME" ] && [ "$FORCE_UPDATE" != "true" ]; then
             log "已是最新版本，无需更新"
+            echo "skip_update=true" >> $GITHUB_OUTPUT
             exit 0
           fi
 
@@ -94,28 +95,34 @@ jobs:
             log "ERROR: $TEMP_DIR 目录未创建"
             exit 1
           fi
+          FILE_COUNT=$(find "$TEMP_DIR" -type f | wc -l)
+          if [ "$FILE_COUNT" -eq 0 ]; then
+            log "ERROR: $TEMP_DIR 目录为空"
+            exit 1
+          fi
           log "临时目录内容:"
           ls -l "$TEMP_DIR" || log "ERROR: 无法列出 $TEMP_DIR 内容"
 
           # 设置输出变量
           echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "skip_update=false" >> $GITHUB_OUTPUT
           echo "$TAG_NAME" > version.txt
           log "更新完成，新版本: $TAG_NAME"
 
       - name: 设置 Node.js 环境
-        if: steps.check_update.outcome == 'success'
+        if: steps.check_update.outputs.skip_update != 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
       - name: 安装混淆工具
-        if: steps.check_update.outcome == 'success'
+        if: steps.check_update.outputs.skip_update != 'true'
         run: |
           npm install -g javascript-obfuscator
           echo "OBFUSCATE_DIR=$TEMP_DIR" >> $GITHUB_ENV
 
       - name: 混淆代码
-        if: steps.check_update.outcome == 'success'
+        if: steps.check_update.outputs.skip_update != 'true'
         run: |
           log() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"; }
           log "开始混淆代码..."
@@ -123,26 +130,31 @@ jobs:
             log "ERROR: $OBFUSCATE_DIR 目录不存在"
             exit 1
           fi
-          if [ ! -f "obfuscator-config.json" ]; then
-            log "警告: 未找到 obfuscator-config.json，将使用默认混淆设置"
-            find "$OBFUSCATE_DIR" -type f -name "*.js" -exec javascript-obfuscator {} --output {}.obfuscated \;
+          JS_FILES=$(find "$OBFUSCATE_DIR" -type f -name "*.js" | wc -l)
+          if [ "$JS_FILES" -eq 0 ]; then
+            log "警告: 未在 $OBFUSCATE_DIR 中找到 .js 文件"
           else
-            find "$OBFUSCATE_DIR" -type f -name "*.js" -exec javascript-obfuscator {} --output {}.obfuscated --config obfuscator-config.json \;
+            if [ ! -f "obfuscator-config.json" ]; then
+              log "警告: 未找到 obfuscator-config.json，将使用默认混淆设置"
+              find "$OBFUSCATE_DIR" -type f -name "*.js" -exec javascript-obfuscator {} --output {}.obfuscated \;
+            else
+              find "$OBFUSCATE_DIR" -type f -name "*.js" -exec javascript-obfuscator {} --output {}.obfuscated --config obfuscator-config.json \;
+            fi
+            find "$OBFUSCATE_DIR" -type f -name "*.js.obfuscated" -exec sh -c 'mv "$1" "${1%.obfuscated}"' _ {} \;
+            log "代码混淆完成，处理了 $JS_FILES 个文件"
           fi
-          find "$OBFUSCATE_DIR" -type f -name "*.js.obfuscated" -exec sh -c 'mv "$1" "${1%.obfuscated}"' _ {} \;
-          log "代码混淆完成"
 
       - name: 移动混淆后的文件
-        if: steps.check_update.outcome == 'success'
+        if: steps.check_update.outputs.skip_update != 'true'
         run: |
           log() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"; }
           log "移动 $TEMP_DIR 中的文件..."
-          mv $TEMP_DIR/* .
-          rm -rf $TEMP_DIR
+          mv "$TEMP_DIR"/* .
+          rm -rf "$TEMP_DIR"
           log "文件移动完成"
 
       - name: 提交更改
-        if: steps.check_update.outcome == 'success'
+        if: steps.check_update.outputs.skip_update != 'true'
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "🔄 自动同步 Worker 版本: ${{ steps.check_update.outputs.tag_name }}"
