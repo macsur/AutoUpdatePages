@@ -1,0 +1,112 @@
+name: Auto Update Worker
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "0 1 * * *" # 每天凌晨1点运行
+  workflow_dispatch:
+    inputs:
+      force_update:
+        description: '是否强制更新（忽略版本检查）'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 安装必要工具
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq unzip wget
+
+      - name: 设置环境
+        run: |
+          echo "REPO_URL=https://api.github.com/repos/bia-pain-bache/BPB-Worker-Panel/releases" >> $GITHUB_ENV
+          echo "TARGET_FILE=worker.zip" >> $GITHUB_ENV
+          echo "BACKUP_DIR=backup_$(date +%Y%m%d_%H%M%S)" >> $GITHUB_ENV
+
+      - name: 检查并更新 Worker
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 日志函数
+          log() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"; }
+          error() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] ERROR: $1" >&2; exit 1; }
+
+          log "开始检查更新..."
+
+          # 获取本地版本
+          LOCAL_VERSION=$(cat version.txt 2>/dev/null || echo "")
+          log "本地版本: ${LOCAL_VERSION:-无}"
+
+          # 获取最新 Release
+          log "获取最新 Release 信息..."
+          RESPONSE=$(curl -s --retry 3 -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/vnd.github.v3+json" "$REPO_URL")
+          if [ $? -ne 0 ]; then
+            error "无法访问 GitHub API"
+          fi
+
+          TAG_NAME=$(echo "$RESPONSE" | jq -r '.[0].tag_name')
+          DOWNLOAD_URL=$(echo "$RESPONSE" | jq -r '.[0].assets[] | select(.name == "'"$TARGET_FILE"'") | .browser_download_url')
+
+          if [ -z "$DOWNLOAD_URL" ] || [ "$DOWNLOAD_URL" == "null" ]; then
+            error "未找到 $TARGET_FILE"
+          fi
+          log "最新版本: $TAG_NAME"
+
+          # 判断是否需要更新
+          FORCE_UPDATE=${{ github.event.inputs.force_update || 'false' }}
+          if [ "$LOCAL_VERSION" = "$TAG_NAME" ] && [ "$FORCE_UPDATE" != "true" ]; then
+            log "已是最新版本，无需更新"
+            exit 0
+          fi
+
+          # 创建备份
+          log "创建备份目录 $BACKUP_DIR"
+          mkdir -p "$BACKUP_DIR"
+          cp -r ./* "$BACKUP_DIR/" 2>/dev/null || true
+
+          # 下载新版本
+          log "下载 $TARGET_FILE..."
+          wget -q -O "$TARGET_FILE" "$DOWNLOAD_URL" || error "下载失败"
+
+          # 解压前清理（保留配置文件和重要文件）
+          log "清理旧文件..."
+          find . -maxdepth 1 -type f -not -name 'version.txt' -not -name 'config.*' -not -name '.git*' -delete
+          find . -maxdepth 1 -type d -not -name '.git' -not -name 'backup_*' -exec rm -rf {} \; 2>/dev/null || true
+
+          # 解压新文件
+          log "解压 $TARGET_FILE..."
+          unzip -o "$TARGET_FILE" || error "解压失败"
+          rm "$TARGET_FILE"
+
+          # 代码混淆处理
+          log "开始代码混淆处理..."
+          ./obfuscate_script.sh || log "警告: 混淆处理失败，继续执行"
+
+          echo "$TAG_NAME" > version.txt
+          log "更新完成，新版本: $TAG_NAME"
+
+      - name: 提交更改
+        if: success()
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "🔄 自动同步 Worker 版本: $TAG_NAME"
+          commit_author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+
+      - name: 清理备份
+        if: always()
+        run: |
+          # 保留最近3个备份，删除旧的
+          ls -td backup_* | tail -n +4 | xargs rm -rf 2>/dev/null || true
