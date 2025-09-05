@@ -5,7 +5,7 @@ on:
     branches:
       - main
   schedule:
-    - cron: "0 17 * * *" # 东九区每天凌晨1点（UTC 17:00 前一天）
+    - cron: "0 17 * * *" # JST 每天凌晨1点（UTC 17:00 前一天）
   workflow_dispatch:
     inputs:
       force_update:
@@ -159,6 +159,10 @@ jobs:
           log "触发 Cloudflare Pages 重新部署..."
           log "使用账户 ID: $CF_ACCOUNT_ID"
           log "使用项目名称: $CF_PROJECT_NAME"
+          if [ -z "$CF_ACCOUNT_ID" ] || [ -z "$CF_PROJECT_NAME" ] || [ -z "$CF_API_TOKEN" ]; then
+            log "ERROR: 缺少必要的 Secrets（CF_ACCOUNT_ID, CF_PROJECT_NAME, 或 CF_API_TOKEN）"
+            exit 1
+          fi
           RESPONSE=$(curl -X POST "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/pages/projects/$CF_PROJECT_NAME/deployments" \
             -H "Authorization: Bearer $CF_API_TOKEN" \
             -H "Content-Type: application/json" \
